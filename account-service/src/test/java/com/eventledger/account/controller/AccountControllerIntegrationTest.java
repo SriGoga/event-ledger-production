@@ -65,6 +65,43 @@ public class AccountControllerIntegrationTest {
     }
 
     @Test
+    void testGetAccountDetailsWithTransactions() throws Exception {
+        // Arrange
+        Account account = new Account("ACC_DETAILS");
+        account.setBalance(new BigDecimal("1000.00"));
+        accountRepository.save(account);
+
+        // Create some transactions
+        TransactionRequest request1 = new TransactionRequest(
+                "EVT_D_001",
+                "CREDIT",
+                new BigDecimal("500.00"),
+                "USD",
+                Instant.now()
+        );
+
+        mockMvc.perform(post("/accounts/ACC_DETAILS/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request1)))
+                .andExpect(status().isOk());
+
+        // Act & Assert - Get account details
+        mockMvc.perform(get("/accounts/ACC_DETAILS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountId", equalTo("ACC_DETAILS")))
+                .andExpect(jsonPath("$.balance", equalTo(1500.0)))
+                .andExpect(jsonPath("$.recentTransactions", hasSize(1)))
+                .andExpect(jsonPath("$.recentTransactions[0].eventId", equalTo("EVT_D_001")));
+    }
+
+    @Test
+    void testGetAccountDetailsNonExistent() throws Exception {
+        // Act & Assert
+        mockMvc.perform(get("/accounts/NONEXISTENT"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void testApplyDebitTransaction() throws Exception {
         // Arrange
         Account account = new Account("ACC_001");
@@ -185,6 +222,47 @@ public class AccountControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testOutOfOrderEventProcessing() throws Exception {
+        // Arrange - Create 3 transactions with timestamps in different order
+        Instant t1 = Instant.parse("2026-01-01T10:00:00Z");
+        Instant t2 = Instant.parse("2026-01-02T10:00:00Z");
+        Instant t3 = Instant.parse("2026-01-03T10:00:00Z");
+
+        // Arrange
+        Account account = new Account("ACC_OUT");
+        account.setBalance(BigDecimal.ZERO);
+        accountRepository.save(account);
+
+        // Apply t3, then t1, then t2 (out of order)
+
+        // Transaction 1: Credit 300 at t3
+        mockMvc.perform(post("/accounts/ACC_OUT/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new TransactionRequest(
+                        "EVT_OUT_3", "CREDIT", new BigDecimal("300"), "USD", t3))))
+                .andExpect(status().isOk());
+
+        // Transaction 2: Credit 100 at t1
+        mockMvc.perform(post("/accounts/ACC_OUT/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new TransactionRequest(
+                        "EVT_OUT_1", "CREDIT", new BigDecimal("100"), "USD", t1))))
+                .andExpect(status().isOk());
+
+        // Transaction 3: Credit 200 at t2
+        mockMvc.perform(post("/accounts/ACC_OUT/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new TransactionRequest(
+                        "EVT_OUT_2", "CREDIT", new BigDecimal("200"), "USD", t2))))
+                .andExpect(status().isOk());
+
+        // Verify final balance is correct: 100 + 200 + 300 = 600
+        mockMvc.perform(get("/accounts/ACC_OUT/balance"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.balance", equalTo(600.0)));
     }
 }
 

@@ -20,6 +20,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 public class EventServiceTest {
@@ -95,7 +96,14 @@ public class EventServiceTest {
         assertEquals("ACC001", result.getAccountId());
         assertEquals(EventEntity.EventType.CREDIT, result.getType());
         verify(accountClient, times(1)).apply(testEventRequest);
-        verify(eventRepository, times(2)).save(any(EventEntity.class));
+        
+        // Verify processed flag is set to true in the final saved event
+        ArgumentCaptor<EventEntity> captor = ArgumentCaptor.forClass(EventEntity.class);
+        verify(eventRepository, times(2)).save(captor.capture());
+        
+        // The second save should have processed = true
+        EventEntity finalSavedEvent = captor.getAllValues().get(1);
+        assertTrue(finalSavedEvent.isProcessed());
     }
 
     @Test
@@ -116,6 +124,14 @@ public class EventServiceTest {
                 eventService.create(testEventRequest)
         );
         verify(accountClient, times(1)).apply(testEventRequest);
+        
+        // Verify that the event was saved with processed = false before exception
+        ArgumentCaptor<EventEntity> captor = ArgumentCaptor.forClass(EventEntity.class);
+        verify(eventRepository, times(2)).save(captor.capture());
+        
+        // The second save should have processed = false
+        EventEntity finalSavedEvent = captor.getAllValues().get(1);
+        assertFalse(finalSavedEvent.isProcessed());
     }
 
     @Test

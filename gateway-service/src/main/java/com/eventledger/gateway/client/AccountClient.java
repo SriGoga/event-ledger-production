@@ -8,9 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
 
 @Component
 public class AccountClient {
@@ -24,7 +29,10 @@ public class AccountClient {
             RestTemplateBuilder builder,
             @Value("${account.service.url:http://localhost:8081}") String accountServiceUrl,
             Tracer tracer) {
-        this.restTemplate = builder.build();
+        this.restTemplate = builder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(10))
+                .build();
         this.accountServiceUrl = accountServiceUrl;
         this.tracer = tracer;
     }
@@ -52,3 +60,4 @@ public class AccountClient {
         throw new EventProcessingException("Account service unavailable - circuit breaker open", ex);
     }
 }
+

@@ -18,12 +18,12 @@ public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(EventProcessingException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public ResponseEntity<ErrorResponse> handleEventProcessingException(EventProcessingException ex) {
         logger.error("Event processing exception: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse(
-                        HttpStatus.BAD_REQUEST.value(),
+                        HttpStatus.SERVICE_UNAVAILABLE.value(),
                         ex.getMessage(),
                         Instant.now()
                 ));

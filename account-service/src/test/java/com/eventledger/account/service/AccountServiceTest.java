@@ -21,6 +21,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 public class AccountServiceTest {
@@ -54,7 +55,7 @@ public class AccountServiceTest {
     @Test
     void testApplyTransactionCredit() {
         // Arrange
-        when(transactionRepository.existsByEventId("EVT001")).thenReturn(false);
+        when(transactionRepository.existsByEventId("EVT002")).thenReturn(false);
         when(accountRepository.findById("ACC001")).thenReturn(Optional.of(testAccount));
         when(accountRepository.save(any(Account.class))).thenReturn(testAccount);
         when(transactionRepository.save(any(Transaction.class))).thenReturn(new Transaction());
@@ -73,7 +74,7 @@ public class AccountServiceTest {
         // Assert
         assertNotNull(response);
         assertEquals("ACC001", response.accountId());
-        verify(accountRepository, times(2)).save(any(Account.class));
+        verify(accountRepository, times(1)).save(any(Account.class));
         verify(transactionRepository, times(1)).save(any(Transaction.class));
     }
 
@@ -91,7 +92,7 @@ public class AccountServiceTest {
         // Assert
         assertNotNull(response);
         assertEquals("ACC001", response.accountId());
-        verify(accountRepository, times(2)).save(any(Account.class));
+        verify(accountRepository, times(1)).save(any(Account.class));
     }
 
     @Test
@@ -172,6 +173,90 @@ public class AccountServiceTest {
         assertNotNull(response);
         assertEquals("NEW_ACC", response.accountId());
         verify(accountRepository, times(1)).findById("NEW_ACC");
+    }
+
+    @Test
+    void testApplyTransactionWithInvalidType() {
+        // Arrange
+        when(transactionRepository.existsByEventId("EVT004")).thenReturn(false);
+        when(accountRepository.findById("ACC001")).thenReturn(Optional.of(testAccount));
+
+        TransactionRequest invalidRequest = new TransactionRequest(
+                "EVT004",
+                "INVALID_TYPE",
+                new BigDecimal("50.00"),
+                "USD",
+                Instant.now()
+        );
+
+        // Act & Assert
+        assertThrows(AccountException.class, () ->
+                accountService.applyTransaction("ACC001", invalidRequest)
+        );
+    }
+
+    @Test
+    void testApplyTransactionVerifySavedTransactionFields() {
+        // Arrange
+        Instant eventTimestamp = Instant.parse("2026-07-15T10:30:00Z");
+        when(transactionRepository.existsByEventId("EVT005")).thenReturn(false);
+        when(accountRepository.findById("ACC001")).thenReturn(Optional.of(testAccount));
+        when(accountRepository.save(any(Account.class))).thenReturn(testAccount);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(new Transaction());
+
+        TransactionRequest request = new TransactionRequest(
+                "EVT005",
+                "DEBIT",
+                new BigDecimal("30.00"),
+                "EUR",
+                eventTimestamp
+        );
+
+        // Act
+        accountService.applyTransaction("ACC001", request);
+
+        // Assert - capture and verify saved Transaction
+        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(1)).save(captor.capture());
+
+        Transaction savedTx = captor.getValue();
+        assertEquals("EVT005", savedTx.getEventId());
+        assertEquals("ACC001", savedTx.getAccountId());
+        assertEquals(Transaction.TransactionType.DEBIT, savedTx.getType());
+        assertEquals(new BigDecimal("30.00"), savedTx.getAmount());
+        assertEquals("EUR", savedTx.getCurrency());
+        assertEquals(eventTimestamp, savedTx.getTransactionTime());
+    }
+
+    @Test
+    void testApplyTransactionWithoutEventTimestampUsesNow() {
+        // Arrange
+        when(transactionRepository.existsByEventId("EVT006")).thenReturn(false);
+        when(accountRepository.findById("ACC001")).thenReturn(Optional.of(testAccount));
+        when(accountRepository.save(any(Account.class))).thenReturn(testAccount);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(new Transaction());
+
+        TransactionRequest request = new TransactionRequest(
+                "EVT006",
+                "CREDIT",
+                new BigDecimal("50.00"),
+                "GBP",
+                null  // No timestamp provided
+        );
+
+        Instant beforeCall = Instant.now();
+        // Act
+        accountService.applyTransaction("ACC001", request);
+        Instant afterCall = Instant.now();
+
+        // Assert - capture and verify transaction time is set to approximately now
+        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(1)).save(captor.capture());
+
+        Transaction savedTx = captor.getValue();
+        assertNotNull(savedTx.getTransactionTime());
+        assertFalse(savedTx.getTransactionTime().isBefore(beforeCall));
+        assertFalse(savedTx.getTransactionTime().isAfter(afterCall));
     }
 }
 

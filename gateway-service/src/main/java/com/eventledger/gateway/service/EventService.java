@@ -5,6 +5,7 @@ import com.eventledger.gateway.dto.EventRequest;
 import com.eventledger.gateway.entity.EventEntity;
 import com.eventledger.gateway.exception.EventProcessingException;
 import com.eventledger.gateway.repository.EventRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,11 +19,13 @@ public class EventService {
     private final EventRepository repo;
     private final AccountClient client;
     private final Tracer tracer;
+    private final ObjectMapper objectMapper;
 
-    public EventService(EventRepository repo, AccountClient client, Tracer tracer) {
+    public EventService(EventRepository repo, AccountClient client, Tracer tracer, ObjectMapper objectMapper) {
         this.repo = repo;
         this.client = client;
         this.tracer = tracer;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -60,6 +63,15 @@ public class EventService {
 
                         if (request.eventTimestamp() != null) {
                             event.setEventTimestamp(request.eventTimestamp());
+                        }
+
+                        // Serialize metadata if provided
+                        if (request.metadata() != null) {
+                            try {
+                                event.setMetadata(objectMapper.writeValueAsString(request.metadata()));
+                            } catch (Exception e) {
+                                logger.warn("Failed to serialize metadata for event: {}", request.eventId(), e);
+                            }
                         }
 
                         // Save event first (idempotency key)
