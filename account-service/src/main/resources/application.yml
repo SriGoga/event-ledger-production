@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: account-service
+  datasource:
+    url: jdbc:h2:mem:accountdb
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
