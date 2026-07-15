@@ -3,8 +3,41 @@ spring:
     name: account-service
   datasource:
     url: jdbc:h2:mem:accountdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health,metrics,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4317
+
+logging:
+  level:
+    com.eventledger: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: WARN

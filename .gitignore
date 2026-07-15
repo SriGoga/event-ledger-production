@@ -1,0 +1,76 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+*.zip
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+.flattened-pom.xml
+*.classpath
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.project
+*.settings/
+.classpath
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Build
+build/
+out/
+dist/
+bin/
+.gradle/
+
+# Local
+*.log
+*.swp
+*.swo
+*~
+.env
+.env.local
+.env.*.local
+
+# Node (if added later)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python (if added later)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+
+# Docker
+.docker
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary
+*.tmp
+*.temp
+.tmp/
+
